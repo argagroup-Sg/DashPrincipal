@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#123f70" />
+    <title>Supervisión | Asistencia</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+      :root {
+        --navy: #123f70;
+        --blue: #1767bd;
+        --green: #25834b;
+        --orange: #d97706;
+        --red: #b83232;
+        --bg: #f3f6fa;
+        --ink: #1d2b39;
+        --muted: #687887;
+        --line: #e3eaf1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        font-family: Inter, system-ui, Arial;
+        color: var(--ink);
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .wrap {
+        max-width: 1250px;
+        margin: auto;
+        padding: 22px;
+      }
+      .login {
+        max-width: 420px;
+        margin: 9vh auto;
+        background: white;
+        padding: 30px;
+        border-radius: 18px;
+        box-shadow: 0 12px 40px #102e4c18;
+      }
+      .brand {
+        color: var(--navy);
+        font-size: 24px;
+        font-weight: 900;
+        margin: 0 0 6px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .field {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #d6e0e9;
+        border-radius: 9px;
+        margin: 7px 0 14px;
+        background: white;
+      }
+      .btn {
+        border: 0;
+        border-radius: 9px;
+        padding: 11px 15px;
+        background: var(--blue);
+        color: white;
+        font-weight: 750;
+        cursor: pointer;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+      .btn.secondary {
+        background: #eaf0f6;
+        color: #29445d;
+      }
+      .btn.dark {
+        background: var(--navy);
+      }
+      .top {
+        background: var(--navy);
+        color: white;
+        padding: 18px 24px;
+      }
+      .topin {
+        max-width: 1250px;
+        margin: auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+      }
+      .top h1 {
+        font-size: 20px;
+        margin: 0;
+      }
+      .top small {
+        opacity: 0.75;
+      }
+      .userline {
+        font-size: 12px;
+        text-align: right;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 13px;
+        margin: 20px 0;
+      }
+      .stat,
+      .panel {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 17px;
+        box-shadow: 0 3px 12px #142d4410;
+      }
+      .stat label {
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .stat strong {
+        display: block;
+        font-size: 30px;
+        margin-top: 7px;
+        color: var(--navy);
+      }
+      .panel {
+        margin: 14px 0;
+      }
+      .panel h2 {
+        font-size: 16px;
+        margin: 0 0 14px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 9px;
+        flex-wrap: wrap;
+        align-items: end;
+      }
+      .toolbar > div {
+        min-width: 150px;
+        flex: 1;
+      }
+      .toolbar label {
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--muted);
+      }
+      .toolbar input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 5px;
+      }
+      .tablewrap {
+        overflow: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        white-space: nowrap;
+        font-size: 12px;
+      }
+      th,
+      td {
+        padding: 11px 10px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      th {
+        background: #f5f8fb;
+        color: #536678;
+        font-size: 10px;
+        text-transform: uppercase;
+        position: sticky;
+        top: 0;
+      }
+      .tag {
+        display: inline-block;
+        padding: 5px 8px;
+        border-radius: 20px;
+        background: #edf3f8;
+        color: #31516e;
+        font-size: 10px;
+        font-weight: 800;
+      }
+      .tag.green {
+        background: #e8f6ed;
+        color: #216d3a;
+      }
+      .tag.orange {
+        background: #fff1df;
+        color: #925000;
+      }
+      .tag.purple {
+        background: #f0eafd;
+        color: #6543a0;
+      }
+      .msg {
+        padding: 11px;
+        border-radius: 8px;
+        background: #eef3f8;
+        color: #42576a;
+        font-size: 13px;
+        margin: 12px 0;
+      }
+      .msg.error {
+        background: #fdeaea;
+        color: #9c2929;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        padding: 9px 13px;
+        color: #42576a;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .tab.active {
+        background: var(--navy);
+        color: white;
+      }
+      .foot {
+        color: #91a0ad;
+        text-align: center;
+        font-size: 11px;
+        margin: 24px;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 850px) {
+        .grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 520px) {
+        .wrap {
+          padding: 12px;
+        }
+        .topin {
+          align-items: flex-start;
+        }
+        .top h1 {
+          font-size: 16px;
+        }
+        .grid {
+          gap: 8px;
+        }
+        .stat {
+          padding: 12px;
+        }
+        .stat strong {
+          font-size: 25px;
+        }
+        .login {
+          margin: 6vh 14px;
+          padding: 23px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section id="loginView" class="login">
+      <p class="brand">CONTROL DE ASISTENCIA</p>
+      <p class="muted">Portal privado de supervisión y reportes</p>
+      <form id="loginForm">
+        <label class="muted">Correo electrónico</label
+        ><input
+          class="field"
+          id="email"
+          type="email"
+          required
+          autocomplete="username"
+          placeholder="supervisor@empresa.com"
+        /><label class="muted">Contraseña</label
+        ><input
+          class="field"
+          id="password"
+          type="password"
+          required
+          autocomplete="current-password"
+          placeholder="Contraseña"
+        /><button class="btn dark" style="width: 100%" id="loginBtn">
+          INICIAR SESIÓN
+        </button>
+      </form>
+      <div id="loginMsg" class="msg hidden"></div>
+    </section>
+    <div id="appView" class="hidden">
+      <header class="top">
+        <div class="topin">
+          <div>
+            <h1>SUPERVISIÓN DE ASISTENCIA</h1>
+            <small>Panel de control · Ecuador</small>
+          </div>
+          <div class="userline">
+            <span id="userName">Usuario</span><br /><button
+              class="btn secondary"
+              id="logoutBtn"
+              style="margin-top: 7px; padding: 7px 10px"
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
+      </header>
+      <main class="wrap">
+        <div id="globalMsg" class="msg hidden"></div>
+        <div class="grid">
+          <div class="stat">
+            <label>Dentro de instalaciones</label
+            ><strong id="sDentro">—</strong>
+          </div>
+          <div class="stat">
+            <label>En comida</label><strong id="sComida">—</strong>
+          </div>
+          <div class="stat">
+            <label>Con permiso</label><strong id="sPermiso">—</strong>
+          </div>
+          <div class="stat">
+            <label>Ingresos hoy</label><strong id="sIngresos">—</strong>
+          </div>
+          <div class="stat">
+            <label>Salidas hoy</label><strong id="sSalidas">—</strong>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="tabs">
+            <button class="tab active" data-tab="live">
+              Personal en instalaciones</button
+            ><button class="tab" data-tab="reports">Reportes y Excel</button
+            ><button class="tab hidden" id="usersTab" data-tab="users">
+              Usuarios
+            </button>
+          </div>
+        </div>
+        <section id="liveSection" class="panel">
+          <div class="actions" style="justify-content: space-between">
+            <h2>Estado actual del personal</h2>
+            <button class="btn secondary" id="refreshBtn">Actualizar</button>
+          </div>
+          <p class="muted">
+            Muestra las jornadas que todavía no tienen salida registrada.
+          </p>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cédula</th>
+                  <th>Personal</th>
+                  <th>Área</th>
+                  <th>Ingreso</th>
+                  <th>Estado actual</th>
+                </tr>
+              </thead>
+              <tbody id="liveBody">
+                <tr>
+                  <td colspan="5">Cargando...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="reportsSection" class="panel hidden">
+          <h2>Consulta de asistencia</h2>
+          <div class="toolbar">
+            <div><label>Desde</label><input type="date" id="fromDate" /></div>
+            <div><label>Hasta</label><input type="date" id="toDate" /></div>
+            <div>
+              <label>Buscar cédula, nombre o área</label
+              ><input id="searchText" placeholder="Texto de búsqueda" />
+            </div>
+            <div style="flex: 0 0 auto">
+              <button class="btn" id="searchBtn">Consultar</button>
+            </div>
+          </div>
+          <div class="actions" style="margin: 14px 0">
+            <button class="btn dark" id="excelBtn" disabled>
+              Descargar Excel (.xlsx)</button
+            ><span class="muted" id="reportCount"></span>
+          </div>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha ingreso</th>
+                  <th>Cédula</th>
+                  <th>Nombre</th>
+                  <th>Área</th>
+                  <th>Salida</th>
+                  <th>Turno</th>
+                  <th>Horas</th>
+                  <th>Jornada</th>
+                </tr>
+              </thead>
+              <tbody id="reportBody">
+                <tr>
+                  <td colspan="8">Seleccione un rango y consulte.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="usersSection" class="panel hidden">
+          <h2>Administración de supervisores</h2>
+          <p class="muted">
+            Primero cree la cuenta en Supabase Authentication. Aquí se asigna el
+            rol a su UUID.
+          </p>
+          <div class="toolbar">
+            <div>
+              <label>UUID de Auth</label
+              ><input id="newUserId" placeholder="UUID del usuario" />
+            </div>
+            <div>
+              <label>Nombre</label
+              ><input id="newUserName" placeholder="Nombre del supervisor" />
+            </div>
+            <div>
+              <label>Rol</label
+              ><select id="newUserRole" class="field">
+                <option>SUPERVISOR</option>
+                <option>ADMIN</option>
+              </select>
+            </div>
+            <div style="flex: 0 0 auto">
+              <button class="btn" id="saveUserBtn">Guardar usuario</button>
+            </div>
+          </div>
+          <div class="tablewrap" style="margin-top: 15px">
+            <table>
+              <thead>
+                <tr>
+                  <th>UUID</th>
+                  <th>Nombre</th>
+                  <th>Rol</th>
+                  <th>Activo</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+        </section>
+        <div class="foot">
+          Acceso restringido · Zona horaria America/Guayaquil
+        </div>
+      </main>
+    </div>
+    <script>
+      const SUPABASE_URL = "https://dffmmsmcwbzxxgdczzww.supabase.co"
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZm1tc21jd2J6eHhnZGN6end3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NTMwNzksImV4cCI6MjEwNTEyOTA3OX0.diGOnxMrG5nwK6XhXdLcj72tbEwKtiUd8VANpUFAA1Y";
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      });
+      let currentProfile = null,
+        reportRows = [];
+      const $ = (id) => document.getElementById(id);
+      function showMsg(el, msg, error = false) {
+        el.textContent = msg;
+        el.classList.remove("hidden", "error");
+        if (error) el.classList.add("error");
+      }
+      function hideMsg(el) {
+        el.classList.add("hidden");
+      }
+      function fmt(v) {
+        if (!v) return "—";
+        return new Intl.DateTimeFormat("es-EC", {
+          timeZone: "America/Guayaquil",
+          dateStyle: "short",
+          timeStyle: "medium",
+        }).format(new Date(v));
+      }
+      function esc(v) {
+        return String(v ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+      async function rpc(name, args = {}) {
+        const { data, error } = await sb.rpc(name, args);
+        if (error) throw error;
+        return data;
+      }
+      async function startApp(session) {
+        $("loginView").classList.add("hidden");
+        $("appView").classList.remove("hidden");
+        const {
+          data: { user },
+        } = await sb.auth.getUser();
+        const { data: profile, error } = await sb
+          .from("asistencia_supervisores")
+          .select("nombre,rol,activo")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (error || !profile || !profile.activo) {
+          await sb.auth.signOut();
+          $("appView").classList.add("hidden");
+          $("loginView").classList.remove("hidden");
+          showMsg(
+            $("loginMsg"),
+            "Cuenta sin autorización activa. Solicite al administrador que le asigne un rol.",
+            true,
+          );
+          return;
+        }
+        currentProfile = profile;
+        $("userName").textContent = profile.nombre + " · " + profile.rol;
+        if (profile.rol === "ADMIN") $("usersTab").classList.remove("hidden");
+        await refreshDashboard();
+      }
+      $("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        $("loginBtn").disabled = true;
+        hideMsg($("loginMsg"));
+        try {
+          const { data, error } = await sb.auth.signInWithPassword({
+            email: $("email").value.trim(),
+            password: $("password").value,
+          });
+          if (error) throw error;
+          await startApp(data.session);
+        } catch (err) {
+          showMsg(
+            $("loginMsg"),
+            err.message || "No se pudo iniciar sesión",
+            true,
+          );
+        } finally {
+          $("loginBtn").disabled = false;
+        }
+      });
+      $("logoutBtn").onclick = async () => {
+        await sb.auth.signOut();
+        location.reload();
+      };
+      sb.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_OUT") {
+          $("appView").classList.add("hidden");
+          $("loginView").classList.remove("hidden");
+        }
+      });
+      async function refreshDashboard() {
+        try {
+          const d = await rpc("supervision_resumen");
+          $("sDentro").textContent = d.dentro;
+          $("sComida").textContent = d.comiendo;
+          $("sPermiso").textContent = d.con_permiso;
+          $("sIngresos").textContent = d.jornadas_hoy;
+          $("sSalidas").textContent = d.salidas_hoy;
+          $("liveBody").innerHTML =
+            (d.abiertos || [])
+              .map(
+                (x) =>
+                  `<tr><td>${esc(x.cedula)}</td><td>${esc(x.nombres_apellidos)}</td><td>${esc(x.area || "—")}</td><td>${esc(fmt(x.fecha_ingreso))}</td><td><span class="tag ${String(x.estado_actual).startsWith("COMIDA") ? "orange" : String(x.estado_actual).startsWith("PERMISO") ? "purple" : "green"}">${esc(x.estado_actual)}</span></td></tr>`,
+              )
+              .join("") ||
+            '<tr><td colspan="5">No hay personal con jornadas abiertas.</td></tr>';
+        } catch (e) {
+          showMsg($("globalMsg"), e.message, true);
+        }
+      }
+      $("refreshBtn").onclick = refreshDashboard;
+      document.querySelectorAll(".tab").forEach(
+        (b) =>
+          (b.onclick = () => {
+            document
+              .querySelectorAll(".tab")
+              .forEach((x) => x.classList.remove("active"));
+            b.classList.add("active");
+            ["live", "reports", "users"].forEach((t) =>
+              $(t + "Section").classList.toggle("hidden", t !== b.dataset.tab),
+            );
+            if (b.dataset.tab === "users") loadUsers();
+          }),
+      );
+      function dateLocal() {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Guayaquil",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date());
+        return parts;
+      }
+      $("fromDate").value = dateLocal();
+      $("toDate").value = dateLocal();
+      $("searchBtn").onclick = async () => {
+        const from = $("fromDate").value,
+          to = $("toDate").value;
+        if (!from || !to || to < from) {
+          showMsg(
+            $("globalMsg"),
+            "Seleccione un rango de fechas válido.",
+            true,
+          );
+          return;
+        }
+        try {
+          hideMsg($("globalMsg"));
+          $("searchBtn").disabled = true;
+          const d = await rpc("supervision_reporte", {
+            p_desde: from,
+            p_hasta: to,
+            p_busqueda: $("searchText").value.trim() || null,
+          });
+          reportRows = d.registros || [];
+          $("reportCount").textContent = `${d.total} jornadas encontradas`;
+          $("excelBtn").disabled = !reportRows.length;
+          $("reportBody").innerHTML =
+            reportRows
+              .map(
+                (x) =>
+                  `<tr><td>${esc(fmt(x.fecha_ingreso))}</td><td>${esc(x.cedula)}</td><td>${esc(x.nombres_apellidos)}</td><td>${esc(x.area || "—")}</td><td>${esc(fmt(x.fecha_salida))}</td><td>${esc(x.tipo_turno || "—")}</td><td>${esc(x.horas_jornada)}</td><td><span class="tag ${x.estado === "ABIERTA" ? "orange" : "green"}">${esc(x.estado)}</span></td></tr>`,
+              )
+              .join("") ||
+            '<tr><td colspan="8">Sin resultados para los filtros seleccionados.</td></tr>';
+        } catch (e) {
+          showMsg($("globalMsg"), e.message, true);
+        } finally {
+          $("searchBtn").disabled = false;
+        }
+      };
+      $("excelBtn").onclick = () => {
+        if (!reportRows.length) return;
+        const main = reportRows.map((x) => ({
+          "ID Jornada": x.jornada_id,
+          Cédula: x.cedula,
+          "Nombres y apellidos": x.nombres_apellidos,
+          Área: x.area,
+          Ingreso: fmt(x.fecha_ingreso),
+          Salida: fmt(x.fecha_salida),
+          Turno: x.tipo_turno,
+          Estado: x.estado,
+          "Horas jornada": x.horas_jornada,
+          Comidas: (x.comidas || [])
+            .map(
+              (a) =>
+                `${a.tipo}: ${fmt(a.inicio)} - ${fmt(a.fin)} (${a.estado})`,
+            )
+            .join(" | "),
+          Permisos: (x.permisos || [])
+            .map(
+              (a) =>
+                `${a.tipo}: ${fmt(a.inicio)} - ${fmt(a.fin)} (${a.estado})`,
+            )
+            .join(" | "),
+        }));
+        const events = [];
+        reportRows.forEach((x) =>
+          (x.eventos || []).forEach((e) =>
+            events.push({
+              "ID Jornada": x.jornada_id,
+              Cédula: x.cedula,
+              Personal: x.nombres_apellidos,
+              Área: x.area,
+              Evento: e.evento,
+              "Tipo comida": e.comida || "",
+              "Tipo permiso": e.permiso || "",
+              "Fecha y hora": fmt(e.fecha_hora),
+            }),
+          ),
+        );
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(
+          wb,
+          XLSX.utils.json_to_sheet(main),
+          "Jornadas",
+        );
+        XLSX.utils.book_append_sheet(
+          wb,
+          XLSX.utils.json_to_sheet(events),
+          "Movimientos",
+        );
+        const safe = $("fromDate").value + "_a_" + $("toDate").value;
+        XLSX.writeFile(wb, `Reporte_Asistencia_${safe}.xlsx`);
+      };
+      async function loadUsers() {
+        try {
+          const d = await rpc("supervision_listar_usuarios");
+          $("usersBody").innerHTML =
+            d.usuarios
+              .map(
+                (u) =>
+                  `<tr><td>${esc(u.user_id)}</td><td>${esc(u.nombre)}</td><td>${esc(u.rol)}</td><td>${u.activo ? "Sí" : "No"}</td></tr>`,
+              )
+              .join("") || '<tr><td colspan="4">Sin usuarios</td></tr>';
+        } catch (e) {
+          showMsg($("globalMsg"), e.message, true);
+        }
+      }
+      $("saveUserBtn").onclick = async () => {
+        try {
+          await rpc("supervision_guardar_usuario", {
+            p_user_id: $("newUserId").value.trim(),
+            p_nombre: $("newUserName").value.trim(),
+            p_rol: $("newUserRole").value,
+            p_activo: true,
+          });
+          $("newUserId").value = "";
+          $("newUserName").value = "";
+          await loadUsers();
+          showMsg($("globalMsg"), "Usuario supervisor actualizado.");
+        } catch (e) {
+          showMsg($("globalMsg"), e.message, true);
+        }
+      };
+      (async () => {
+        if (
+          SUPABASE_URL.includes("TU-PROYECTO") ||
+          SUPABASE_ANON_KEY === "TU_CLAVE_ANON"
+        ) {
+          showMsg(
+            $("loginMsg"),
+            "Configure la URL y la clave anon de su proyecto Supabase en el HTML.",
+            true,
+          );
+          return;
+        }
+        const {
+          data: { session },
+        } = await sb.auth.getSession();
+        if (session) {
+          try {
+            await startApp(session);
+          } catch (e) {
+            showMsg($("loginMsg"), e.message, true);
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
