@@ -452,12 +452,15 @@
                   <th>Salida</th>
                   <th>Turno</th>
                   <th>Horas</th>
+                  <th>Ingreso ajustado (+30 min)</th>
+                  <th>Salida ajustada (-30 min)</th>
+                  <th>Horas jornada ajustadas</th>
                   <th>Jornada</th>
                 </tr>
               </thead>
               <tbody id="reportBody">
                 <tr>
-                  <td colspan="8">Seleccione un rango y consulte.</td>
+                  <td colspan="11">Seleccione un rango y consulte.</td>
                 </tr>
               </tbody>
             </table>
@@ -511,7 +514,7 @@
     <script>
       const SUPABASE_URL = "https://dffmmsmcwbzxxgdczzww.supabase.co"
       const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZm1tc21jd2J6eHhnZGN6end3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NTMwNzksImV4cCI6MjEwNTEyOTA3OX0.diGOnxMrG5nwK6XhXdLcj72tbEwKtiUd8VANpUFAA1Y";
-      
+ 
       const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
           persistSession: true,
@@ -538,6 +541,19 @@
           dateStyle: "short",
           timeStyle: "medium",
         }).format(new Date(v));
+      }
+      function adjustedTime(v, minutes) {
+        if (!v) return "";
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return "";
+        return fmt(new Date(d.getTime() + minutes * 60000));
+      }
+      function adjustedHours(x) {
+        if (!x.fecha_ingreso || !x.fecha_salida) return "";
+        const start = new Date(x.fecha_ingreso).getTime() + 30 * 60000;
+        const end = new Date(x.fecha_salida).getTime() - 30 * 60000;
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return "";
+        return Math.round(((end - start) / 3600000) * 100) / 100;
       }
       function esc(v) {
         return String(v ?? "").replace(
@@ -783,10 +799,10 @@
             reportRows
               .map(
                 (x) =>
-                  `<tr><td>${esc(fmt(x.fecha_ingreso))}</td><td>${esc(x.cedula)}</td><td>${esc(x.nombres_apellidos)}</td><td>${esc(x.area || "—")}</td><td>${esc(fmt(x.fecha_salida))}</td><td>${esc(x.tipo_turno || "—")}</td><td>${esc(x.horas_jornada)}</td><td><span class="tag ${x.estado === "ABIERTA" ? "orange" : "green"}">${esc(x.estado)}</span></td></tr>`,
+                  `<tr><td>${esc(fmt(x.fecha_ingreso))}</td><td>${esc(x.cedula)}</td><td>${esc(x.nombres_apellidos)}</td><td>${esc(x.area || "—")}</td><td>${esc(fmt(x.fecha_salida))}</td><td>${esc(x.tipo_turno || "—")}</td><td>${esc(x.horas_jornada)}</td><td>${esc(adjustedTime(x.fecha_ingreso, 30) || "—")}</td><td>${esc(adjustedTime(x.fecha_salida, -30) || "—")}</td><td>${esc(adjustedHours(x) === "" ? "—" : adjustedHours(x))}</td><td><span class="tag ${x.estado === "ABIERTA" ? "orange" : "green"}">${esc(x.estado)}</span></td></tr>`,
               )
               .join("") ||
-            '<tr><td colspan="8">Sin resultados para los filtros seleccionados.</td></tr>';
+            '<tr><td colspan="11">Sin resultados para los filtros seleccionados.</td></tr>';
         } catch (e) {
           showMsg($("globalMsg"), e.message, true);
         } finally {
@@ -805,6 +821,9 @@
           Turno: x.tipo_turno,
           Estado: x.estado,
           "Horas jornada": x.horas_jornada,
+          "Ingreso ajustado (+30 min)": adjustedTime(x.fecha_ingreso, 30),
+          "Salida ajustada (-30 min)": adjustedTime(x.fecha_salida, -30),
+          "Horas jornada ajustadas": adjustedHours(x),
           Comidas: (x.comidas || [])
             .map(
               (a) =>
