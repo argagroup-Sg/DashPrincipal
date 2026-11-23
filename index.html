@@ -252,6 +252,10 @@
         gap: 8px;
         flex-wrap: wrap;
       }
+      .actions .btn {
+        font-size: 11px;
+        padding: 8px 10px;
+      }
       @media (max-width: 850px) {
         .grid {
           grid-template-columns: repeat(2, 1fr);
@@ -375,16 +379,50 @@
                   <th>Área</th>
                   <th>Ingreso</th>
                   <th>Estado actual</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="liveBody">
                 <tr>
-                  <td colspan="5">Cargando...</td>
+                  <td colspan="6">Cargando...</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </section>
+        <div
+          id="manualModal"
+          class="panel hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="manualTitle"
+        >
+          <h2 id="manualTitle">Registrar evento manual</h2>
+          <p id="manualPerson" class="muted"></p>
+          <form id="manualForm">
+            <input type="hidden" id="manualCedula" /><label class="muted"
+              >Evento</label
+            ><select class="field" id="manualEvent" required></select>
+            <div id="manualTypeWrap">
+              <label class="muted" id="manualTypeLabel">Tipo</label
+              ><select class="field" id="manualType"></select>
+            </div>
+            <label class="muted">Fecha y hora del evento (hora Ecuador)</label
+            ><input
+              class="field"
+              type="datetime-local"
+              id="manualDateTime"
+              required
+            />
+            <div class="actions">
+              <button class="btn" id="manualSave">Registrar evento</button
+              ><button class="btn secondary" type="button" id="manualCancel">
+                Cancelar
+              </button>
+            </div>
+          </form>
+          <div id="manualMsg" class="msg hidden"></div>
+        </div>
         <section id="reportsSection" class="panel hidden">
           <h2>Consulta de asistencia</h2>
           <div class="toolbar">
@@ -473,6 +511,7 @@
     <script>
       const SUPABASE_URL = "https://dffmmsmcwbzxxgdczzww.supabase.co"
       const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZm1tc21jd2J6eHhnZGN6end3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1NTMwNzksImV4cCI6MjEwNTEyOTA3OX0.diGOnxMrG5nwK6XhXdLcj72tbEwKtiUd8VANpUFAA1Y";
+      
       const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
           persistSession: true,
@@ -481,7 +520,8 @@
         },
       });
       let currentProfile = null,
-        reportRows = [];
+        reportRows = [],
+        manualCatalogs = { comidas: [], permisos: [] };
       const $ = (id) => document.getElementById(id);
       function showMsg(el, msg, error = false) {
         el.textContent = msg;
@@ -518,6 +558,7 @@
         return data;
       }
       async function startApp(session) {
+        await loadManualCatalogs();
         $("loginView").classList.add("hidden");
         $("appView").classList.remove("hidden");
         const {
@@ -585,16 +626,112 @@
           $("sSalidas").textContent = d.salidas_hoy;
           $("liveBody").innerHTML =
             (d.abiertos || [])
-              .map(
-                (x) =>
-                  `<tr><td>${esc(x.cedula)}</td><td>${esc(x.nombres_apellidos)}</td><td>${esc(x.area || "—")}</td><td>${esc(fmt(x.fecha_ingreso))}</td><td><span class="tag ${String(x.estado_actual).startsWith("COMIDA") ? "orange" : String(x.estado_actual).startsWith("PERMISO") ? "purple" : "green"}">${esc(x.estado_actual)}</span></td></tr>`,
-              )
+              .map((x) => {
+                const state = String(x.estado_actual);
+                const openMeal = state.startsWith("COMIDA");
+                const openPerm = state.startsWith("PERMISO");
+                const buttons = openMeal
+                  ? `<button class="btn secondary" data-manual="FIN_COMIDA" data-cedula="${esc(x.cedula)}" data-nombre="${esc(x.nombres_apellidos)}">Finalizar comida</button>`
+                  : openPerm
+                    ? `<button class="btn secondary" data-manual="FIN_PERMISO" data-cedula="${esc(x.cedula)}" data-nombre="${esc(x.nombres_apellidos)}">Finalizar permiso</button>`
+                    : `<button class="btn secondary" data-manual="INICIO_COMIDA" data-cedula="${esc(x.cedula)}" data-nombre="${esc(x.nombres_apellidos)}">Iniciar comida</button><button class="btn secondary" data-manual="INICIO_PERMISO" data-cedula="${esc(x.cedula)}" data-nombre="${esc(x.nombres_apellidos)}">Iniciar permiso</button>`;
+                const exit =
+                  openMeal || openPerm
+                    ? ""
+                    : `<button class="btn dark" data-manual="SALIDA" data-cedula="${esc(x.cedula)}" data-nombre="${esc(x.nombres_apellidos)}">Registrar salida</button>`;
+                return `<tr><td>${esc(x.cedula)}</td><td>${esc(x.nombres_apellidos)}</td><td>${esc(x.area || "—")}</td><td>${esc(fmt(x.fecha_ingreso))}</td><td><span class="tag ${openMeal ? "orange" : openPerm ? "purple" : "green"}">${esc(state)}</span></td><td><div class="actions">${buttons}${exit}</div></td></tr>`;
+              })
               .join("") ||
-            '<tr><td colspan="5">No hay personal con jornadas abiertas.</td></tr>';
+            '<tr><td colspan="6">No hay personal con jornadas abiertas.</td></tr>';
+          document
+            .querySelectorAll("[data-manual]")
+            .forEach(
+              (b) =>
+                (b.onclick = () =>
+                  openManual(
+                    b.dataset.cedula,
+                    b.dataset.nombre,
+                    b.dataset.manual,
+                  )),
+            );
         } catch (e) {
           showMsg($("globalMsg"), e.message, true);
         }
       }
+      async function loadManualCatalogs() {
+        const d = await rpc("obtener_catalogos_asistencia");
+        manualCatalogs = {
+          comidas: d.comidas || [],
+          permisos: d.permisos || [],
+        };
+      }
+      function openManual(cedula, nombre, tipo) {
+        $("manualCedula").value = cedula;
+        $("manualPerson").textContent = `${nombre} · Cédula ${cedula}`;
+        $("manualEvent").innerHTML =
+          `<option value="${tipo}">${tipo.replaceAll("_", " ")}</option>`;
+        const isStart = tipo.startsWith("INICIO_");
+        const list =
+          tipo === "INICIO_COMIDA"
+            ? manualCatalogs.comidas
+            : manualCatalogs.permisos;
+        $("manualTypeWrap").classList.toggle("hidden", !isStart);
+        $("manualTypeLabel").textContent =
+          tipo === "INICIO_COMIDA" ? "Tipo de comida" : "Tipo de permiso";
+        $("manualType").innerHTML = list
+          .map((v) => `<option value="${v.id}">${esc(v.nombre)}</option>`)
+          .join("");
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Guayaquil",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).formatToParts(new Date());
+        const part = (k) => parts.find((p) => p.type === k).value;
+        $("manualDateTime").value =
+          `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+        $("manualModal").classList.remove("hidden");
+        hideMsg($("manualMsg"));
+        $("manualModal").scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+      $("manualCancel").onclick = () =>
+        $("manualModal").classList.add("hidden");
+      $("manualForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const tipo = $("manualEvent").value;
+        const local = $("manualDateTime").value;
+        if (!local) {
+          showMsg($("manualMsg"), "Seleccione fecha y hora.", true);
+          return;
+        }
+        const iso = new Date(local + "-05:00").toISOString();
+        const args = {
+          p_cedula: $("manualCedula").value,
+          p_tipo_evento: tipo,
+          p_tipo_comida_id:
+            tipo === "INICIO_COMIDA" ? Number($("manualType").value) : null,
+          p_tipo_permiso_id:
+            tipo === "INICIO_PERMISO" ? Number($("manualType").value) : null,
+          p_fecha_hora: iso,
+        };
+        $("manualSave").disabled = true;
+        try {
+          const d = await rpc("supervision_registrar_evento_manual", args);
+          showMsg($("manualMsg"), d.mensaje || "Evento registrado.");
+          await refreshDashboard();
+          setTimeout(() => $("manualModal").classList.add("hidden"), 900);
+        } catch (err) {
+          showMsg($("manualMsg"), err.message || "No se pudo registrar.", true);
+        } finally {
+          $("manualSave").disabled = false;
+        }
+      };
       $("refreshBtn").onclick = refreshDashboard;
       document.querySelectorAll(".tab").forEach(
         (b) =>
